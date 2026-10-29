@@ -19,6 +19,14 @@ say()  { printf "${GREEN}[+]${NC} %s\n" "$*"; }
 warn() { printf "${YELLOW}[!]${NC} %s\n" "$*"; }
 die()  { printf "${RED}[x]${NC} %s\n" "$*" >&2; exit 1; }
 
+# acceleration options (default: Huawei Cloud mirror for the Playwright base image)
+USE_HUAWEI_MIRROR=1
+for arg in "$@"; do
+  case "$arg" in
+    --direct) USE_HUAWEI_MIRROR=0 ;;
+  esac
+done
+
 # ---------- 0. checks ----------
 command -v docker >/dev/null 2>&1 || die "docker not found. Install Docker first: https://docs.docker.com/engine/install/"
 if ! docker info >/dev/null 2>&1; then
@@ -30,7 +38,12 @@ fi
 
 # ---------- 1. build ----------
 say "Building image $IMAGE_NAME (playwright chromium + dependencies, may take a few minutes)..."
-docker build -f "$APP_DIR/Dockerfile.headless" -t "$IMAGE_NAME" "$APP_DIR"
+BUILD_ARGS=()
+if [ "$USE_HUAWEI_MIRROR" = "1" ]; then
+  BUILD_ARGS+=(--build-arg "PLAYWRIGHT_BASE_IMAGE=swr.cn-north-4.myhuaweicloud.com/ddn-k8s/mcr.microsoft.com/playwright/python:v1.56.0-jammy")
+  say "Using Huawei Cloud mirror for the Playwright base image (add --direct to use the official one)"
+fi
+docker build "${BUILD_ARGS[@]}" -f "$APP_DIR/Dockerfile.headless" -t "$IMAGE_NAME" "$APP_DIR"
 
 # ---------- 2. host data dir + container-friendly config ----------
 say "Preparing data directory $DATA_DIR ..."

@@ -48,11 +48,23 @@ playwright install chromium
 
 **前置**：安装 Docker（[官方文档](https://docs.docker.com/engine/install/)），当前用户可执行 `docker` 命令，建议执行 `sudo -i` 切换至ROOT用户后再执行此脚本，否则容易报没权限。
 
+**一行命令安装（自动走 gh-proxy GitHub 加速 + 华为云镜像，适合国内网络）**：
+
+```bash
+bash <(curl -fsSL https://v4.gh-proxy.com/https://raw.githubusercontent.com/NVP12100F/DouYinSparkFlow-Windows-Next/main/install-remote.sh)
+```
+
+> 脚本自动：加速 clone 仓库到 `~/douyin-sparkflow` → 构建镜像（清华 pip / 阿里 apt / 华为云 Playwright 镜像）→ 生成容器配置 → 启动容器（开机自启）→ 健康检查 → 输出访问地址。
+>
+> 全部直连（海外网络）：命令末尾加 `--direct`。
+
+**手动安装**（也可先 clone 再执行）：
+
 ```bash
 git clone https://github.com/NVP12100F/DouYinSparkFlow-Windows-Next.git
 cd DouYinSparkFlow-Windows-Next
 chmod +x install-linux.sh
-./install-linux.sh
+./install-linux.sh          # 默认华为云镜像；加 --direct 用官方镜像
 ```
 
 脚本自动完成：**检查 Docker → 构建镜像（含国内 pip/apt 源加速）→ 生成容器配置 → 启动容器（开机自启）→ 健康检查 → 输出访问地址**。
