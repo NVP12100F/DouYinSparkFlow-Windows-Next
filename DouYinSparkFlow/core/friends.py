@@ -5,17 +5,14 @@ from core.browser import get_browser
 CHAT_PAGE_URL = "https://creator.douyin.com/creator-micro/data/following/chat"
 FRIENDS_TAB_SELECTOR = 'xpath=//*[@id="sub-app"]/div/div/div[1]/div[2]'
 TARGET_SELECTOR = (
-    'xpath=//*[@id="sub-app"]/div/div[1]/div[2]/div[2]'
-    '//div[contains(@class, "semi-list-item-body semi-list-item-body-flex-start")]'
+    'xpath=//div[contains(@class, "semi-list-item-body-flex-start")]'
 )
 SCROLLABLE_FRIENDS_SELECTOR = (
-    'xpath=//*[@id="sub-app"]/div/div[1]/div[2]/div[2]/div/div/div[3]/div/div/div/ul/div'
+    'xpath=//div[contains(@class, "semi-list-item-body-flex-start")]'
 )
-NO_MORE_SELECTOR = 'xpath=//div[contains(@class, "no-more-tip-ftdJnu")]'
+NO_MORE_SELECTOR = 'xpath=//div[contains(@class, "no-more-tip")]'
 LOADING_SELECTOR = 'xpath=//div[contains(@class, "semi-spin")]'
-FIRST_FRIEND_SELECTOR = (
-    'xpath=//*[@id="sub-app"]/div/div/div[2]/div[2]/div/div/div[1]/div/div/div/ul/div/div/div[1]/li/div'
-)
+FIRST_FRIEND_SELECTOR = 'xpath=//li[contains(@class, "semi-list-item")]'
 FRIEND_NAME_SELECTOR = """xpath=.//span[contains(@class, "item-header-name-")]"""
 LOGIN_MASK_SELECTORS = [".login-mask", ".login-guide-container", ".login-img-code-wrapper"]
 NON_LOGIN_DIALOG_DISMISS_TEXTS = (
@@ -34,8 +31,8 @@ NON_LOGIN_DIALOG_CLOSE_SELECTORS = (
     '[aria-label="Close"]',
     '[aria-label="关闭"]',
 )
-FRIEND_LIST_EMPTY_ROUNDS = 6
-FRIEND_LIST_EMPTY_WAIT_SECONDS = 1.5
+FRIEND_LIST_EMPTY_ROUNDS = 15
+FRIEND_LIST_EMPTY_WAIT_SECONDS = 2.0
 
 
 def update_collection_progress(new_names_count, no_more_visible, scroll_moved, idle_rounds, stuck_rounds, idle_limit=5, stuck_limit=2):
@@ -81,7 +78,7 @@ async def _dismiss_non_login_dialogs(page):
 
 
 async def _click_friends_tab(page):
-    await page.wait_for_selector("#sub-app", timeout=30000)
+    await page.wait_for_selector("#sub-app", timeout=90000)
     try:
         await page.locator(FRIENDS_TAB_SELECTOR).click(timeout=10000)
         return
@@ -141,7 +138,33 @@ async def _wait_for_first_friend_or_empty(page):
     return False
 
 
-async def _wait_for_chat_or_login(page, timeout_seconds=30):
+async def _get_scrollable_friends_container(page):
+    """在新版虚拟列表中动态定位可滚动的列表容器（class 带哈希，不能用固定选择器）。"""
+    return await page.evaluate_handle(
+        """() => {
+            const item = document.querySelector('.semi-list-item-body.semi-list-item-body-flex-start');
+            let node = item;
+            while (node && node !== document.body) {
+                const st = getComputedStyle(node);
+                const scrollable = (st.overflowY === 'auto' || st.overflowY === 'scroll' || st.overflowY === 'overlay') && node.scrollHeight > node.clientHeight + 5;
+                if (scrollable) return node;
+                node = node.parentElement;
+            }
+            const grid = document.querySelector('.ReactVirtualized__Grid');
+            if (grid && grid.scrollHeight > grid.clientHeight + 5) return grid;
+            const anyList = document.querySelector('ul.semi-list-items');
+            let node2 = anyList;
+            while (node2 && node2 !== document.body) {
+                const st = getComputedStyle(node2);
+                if ((st.overflowY === 'auto' || st.overflowY === 'scroll') && node2.scrollHeight > node2.clientHeight + 5) return node2;
+                node2 = node2.parentElement;
+            }
+            return null;
+        }"""
+    )
+
+
+async def _wait_for_chat_or_login(page, timeout_seconds=90):
     deadline = asyncio.get_running_loop().time() + timeout_seconds
     while asyncio.get_running_loop().time() < deadline:
         await _ensure_logged_in(page)
@@ -196,8 +219,9 @@ async def collect_friend_names(page):
         if await loading.count() > 0 and await loading.is_visible():
             await asyncio.sleep(1.5)
 
-        scrollable_element = await page.locator(SCROLLABLE_FRIENDS_SELECTOR).element_handle()
-        if not scrollable_element:
+        scrollable_element = await _get_scrollable_friends_container(page)
+        scrollable_ok = await scrollable_element.evaluate("(e) => e !== null && e.nodeType === 1")
+        if not scrollable_ok:
             if found_names:
                 return found_names
             raise RuntimeError("未找到好友列表滚动容器")
@@ -213,6 +237,7 @@ async def collect_friend_names(page):
             scroll_moved=after_top > before_top,
             idle_rounds=idle_rounds,
             stuck_rounds=stuck_rounds,
+            idle_limit=10,
         )
         if should_stop:
             return found_names

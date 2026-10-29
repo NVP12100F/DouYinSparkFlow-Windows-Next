@@ -131,6 +131,22 @@ def compose_command(*args):
 
 
 def _pid_is_alive(pid):
+    if pid is None:
+        return False
+    if os.name == "nt":
+        # Windows 下 os.kill(pid, 0) 探活不可靠（可能抛 WinError 87/11），改用 OpenProcess。
+        try:
+            import ctypes
+
+            PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
+            kernel32 = ctypes.windll.kernel32
+            handle = kernel32.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, 0, pid)
+            if not handle:
+                return False
+            kernel32.CloseHandle(handle)
+            return True
+        except Exception:
+            return False
     try:
         os.kill(pid, 0)
     except ProcessLookupError:
@@ -370,13 +386,23 @@ def run_background_command(args, log_path, cwd=None, env=None):
             ).encode("utf-8", errors="replace")
         )
         handle.flush()
-        process = subprocess.Popen(
-            args,
+        # Windows: 让子任务脱离控制台进程组，避免 Web 窗口被关闭/收到 Ctrl+C 时
+        # 控制台关闭事件连带中断后台任务（KeyboardInterrupt）。
+        popen_kwargs = dict(
+            args=args,
             cwd=str(cwd_path),
             stdout=handle,
             stderr=subprocess.STDOUT,
             env=child_env,
         )
+        if os.name == "nt":
+            popen_kwargs["creationflags"] = (
+                subprocess.CREATE_NEW_PROCESS_GROUP
+                | getattr(subprocess, "DETACHED_PROCESS", 0x00000008)
+            )
+        else:
+            popen_kwargs["start_new_session"] = True
+        process = subprocess.Popen(**popen_kwargs)
         handle.write(f"[WEB_TRIGGER] {started_at} pid={process.pid}\n".encode("utf-8", errors="replace"))
         handle.flush()
     return process.pid

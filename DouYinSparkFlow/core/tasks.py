@@ -2231,6 +2231,22 @@ def _split_sender_modes(active_config, runnable_user_data):
 
 
 def _pid_is_alive(pid):
+    if pid is None:
+        return False
+    if os.name == "nt":
+        # Windows 下 os.kill(pid, 0) 探活不可靠（可能抛 WinError 87/11），改用 OpenProcess。
+        try:
+            import ctypes
+
+            PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
+            kernel32 = ctypes.windll.kernel32
+            handle = kernel32.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, 0, pid)
+            if not handle:
+                return False
+            kernel32.CloseHandle(handle)
+            return True
+        except Exception:
+            return False
     try:
         os.kill(pid, 0)
     except ProcessLookupError:

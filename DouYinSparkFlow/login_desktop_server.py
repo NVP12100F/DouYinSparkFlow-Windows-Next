@@ -752,4 +752,7 @@ async def get_net_log():
     return {"count": len(_net_log), "capturing": _net_capturing, "log": _net_log.copy()}
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=int(os.getenv("LOGIN_DESKTOP_API_PORT", "18090")), reload=False)
+    # 安全修复：默认只监听本机（127.0.0.1），避免局域网内未授权访问 /export 与 /debug/* 接口。
+    # 如需远程访问，可显式设置环境变量 LOGIN_DESKTOP_BIND_ADDRESS=0.0.0.0。
+    bind_host = os.getenv("LOGIN_DESKTOP_BIND_ADDRESS", "127.0.0.1")
+    uvicorn.run(app, host=bind_host, port=int(os.getenv("LOGIN_DESKTOP_API_PORT", "18090")), reload=False)
