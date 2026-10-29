@@ -46,7 +46,7 @@ playwright install chromium
 
 ### 方式二：Linux（Docker 一键安装）
 
-**前置**：安装 Docker（[官方文档](https://docs.docker.com/engine/install/)），当前用户可执行 `docker` 命令
+**前置**：安装 Docker（[官方文档](https://docs.docker.com/engine/install/)），当前用户可执行 `docker` 命令，建议执行 `sudo -i` 切换至ROOT用户后再执行此脚本，否则容易报没权限。
 
 ```bash
 git clone https://github.com/NVP12100F/DouYinSparkFlow-Windows-Next.git
