@@ -71,9 +71,9 @@ chmod +x install-linux.sh
 常用命令：
 
 ```bash
-docker logs -f douyin-sparkflow   # 查看日志
-docker restart douyin-sparkflow   # 重启
-docker stop douyin-sparkflow      # 停止
+sudo docker logs -f douyin-sparkflow   # 查看日志
+sudo docker restart douyin-sparkflow   # 重启
+sudo docker stop douyin-sparkflow      # 停止
 ```
 
 > 想把 Windows 已登录的账号迁到 Linux：把本地 `usersData.json` 复制到 `~/douyin-sparkflow-data/usersData.json` 后重启容器即可（异地 IP 可能导致 cookies 失效，失效就重新扫码）。
